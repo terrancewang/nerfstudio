@@ -45,6 +45,15 @@ from nerfstudio.data.dataparsers.nerfstudio_dataparser import NerfstudioDataPars
 from nerfstudio.data.dataparsers.phototourism_dataparser import (
     PhototourismDataParserConfig,
 )
+from nerfstudio.dreamfusion_plus.dreamfusion_plus_datamanager import (
+    DreamFusionPlusDataManagerConfig,
+)
+from nerfstudio.dreamfusion_plus.dreamfusion_plus_pipeline import (
+    DreamfusionPlusPipelineConfig,
+)
+from nerfstudio.dreamfusion_plus.dreamfusion_plus_trainer import (
+    DreamfusionPlusTrainerConfig,
+)
 from nerfstudio.engine.optimizers import AdamOptimizerConfig, RAdamOptimizerConfig
 from nerfstudio.engine.schedulers import SchedulerConfig
 from nerfstudio.engine.trainer import TrainerConfig
@@ -433,6 +442,50 @@ method_configs["nerfplayer-ngp"] = TrainerConfig(
     viewer=ViewerConfig(num_rays_per_chunk=64000),
     vis="viewer",
 )
+
+
+method_configs["dreamfusion-plus"] = DreamfusionPlusTrainerConfig(
+    method_name="dreamfusion-plus",
+    steps_per_eval_batch=500,
+    steps_per_save=2000,
+    max_num_iterations=30000,
+    mixed_precision=True,
+    pipeline=DreamfusionPlusPipelineConfig(
+        datamanager=DreamFusionPlusDataManagerConfig(
+            train_num_rays_per_batch=4096,
+            eval_num_rays_per_batch=4096,
+        ),
+        model=DreamFusionModelConfig(
+            eval_num_rays_per_chunk=1 << 15,
+            distortion_loss_mult=10,
+            sphere_collider=True,
+            initialize_density=False,
+            random_background=True,
+            interlevel_loss_mult=1.0,
+            proposal_warmup=500,
+            proposal_update_every=5,
+            proposal_weights_anneal_max_num_iters=100,
+            start_lambertian_training=1000,
+            start_normals_training=500,
+        ),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=5e-2, eps=1e-15),
+            "scheduler": None,
+        },
+        "fields": {
+            "optimizer": AdamOptimizerConfig(lr=5e-3, eps=1e-15),
+            "scheduler": None,
+        },
+        "transients": {
+            "optimizer": AdamOptimizerConfig(lr=5e-3, eps=1e-15),
+            "scheduler": None,
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+)
+
 
 external_methods, external_descriptions = discover_methods()
 method_configs.update(external_methods)
