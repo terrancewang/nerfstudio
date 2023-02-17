@@ -33,6 +33,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from torch import nn
+from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn import Parameter
 from torch.nn.parallel import DistributedDataParallel as DDP
 from typing_extensions import Literal
@@ -94,6 +95,7 @@ class Pipeline(nn.Module):
 
     datamanager: DataManager
     _model: Model
+    generative: bool
 
     @property
     def model(self):
@@ -189,6 +191,8 @@ class VanillaPipelineConfig(cfg.InstantiateConfig):
     """specifies the datamanager config"""
     model: ModelConfig = ModelConfig()
     """specifies the model config"""
+    generative: bool = False
+    """specifies whether the pipeline is for generative models"""
 
 
 class VanillaPipeline(Pipeline):
@@ -215,6 +219,7 @@ class VanillaPipeline(Pipeline):
         test_mode: Literal["test", "val", "inference"] = "val",
         world_size: int = 1,
         local_rank: int = 0,
+        grad_scaler: Optional[GradScaler] = None,
     ):
         super().__init__()
         self.config = config
@@ -222,6 +227,7 @@ class VanillaPipeline(Pipeline):
         self.datamanager: VanillaDataManager = config.datamanager.setup(
             device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
         )
+        self.generative = config.generative
         self.datamanager.to(device)
         # TODO(ethan): get rid of scene_bounds from the model
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
@@ -230,6 +236,8 @@ class VanillaPipeline(Pipeline):
             scene_box=self.datamanager.train_dataset.scene_box,
             num_train_data=len(self.datamanager.train_dataset),
             metadata=self.datamanager.train_dataset.metadata,
+            device=device,
+            grad_scaler=grad_scaler
         )
         self.model.to(device)
 

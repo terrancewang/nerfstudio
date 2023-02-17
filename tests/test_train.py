@@ -25,6 +25,7 @@ BLACKLIST = [
     "depth-nerfacto",
     "nerfplayer-ngp",
     "nerfplayer-nerfacto",
+    "dreamfusion",
 ]
 
 
